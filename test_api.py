@@ -14,41 +14,52 @@ client_secret=os.getenv("NAVER_CLIENT_SECRET")
 
 url = "https://openapi.naver.com/v1/search/news.json"
 headers = {"X-Naver-Client-Id" : client_id,"X-Naver-Client-Secret" : client_secret}
-params={"query":"삼성전자", "display":20, "start":1, "sort":"date"}
 
-response=requests.get(url,headers=headers,params=params)
-
-data=response.json()
+stocks = input("검색할 종목을 입력하세요(콤마로 구분). : ").split(',')
+stocks = [s.strip() for s in stocks]
 
 def clean_text(text):
     text = html.unescape(re.sub('<[^>]+>',"",text))
     return text
 
 okt = Okt()
-
-title_nouns=[]
-for item in data['items']:
-    title = clean_text(item['title'])
-    link = item['link']
-    get_nouns= " ".join(okt.nouns(title))
-    title_nouns.append(get_nouns)
-
-query_nouns = " ".join(okt.nouns(params['query']))
-corpus=[query_nouns]+title_nouns
-
 vectorizer = TfidfVectorizer()
-tfidf_matrix=vectorizer.fit_transform(corpus)
 
-scores= cosine_similarity(tfidf_matrix[0], tfidf_matrix[1:])
-scores = scores[0]
+for stock in stocks:
+    print(f"===={stock}뉴스====")
+    params={"query":stock, "display":20, "start":1, "sort":"date"}
 
-threshold=0.1
+    response=requests.get(url,headers=headers,params=params)
 
-for item,score in zip(data['items'],scores):
-    if score>=threshold:
+    data=response.json()
+
+    title_nouns=[]
+    for item in data['items']:
         title = clean_text(item['title'])
         link = item['link']
-        print("제목:",title,"url:",link)
+        get_nouns= " ".join(okt.nouns(title))
+        title_nouns.append(get_nouns)
+
+    query_nouns = " ".join(okt.nouns(params['query']))
+    corpus=[query_nouns]+title_nouns
+
+    tfidf_matrix=vectorizer.fit_transform(corpus)
+
+    scores= cosine_similarity(tfidf_matrix[0], tfidf_matrix[1:])
+    scores = scores[0]
+
+    threshold=0.1
+
+    result=False
+    for item,score in zip(data['items'],scores):
+        if score>=threshold:
+            title = clean_text(item['title'])
+            link = item['link']
+            print("제목:",title,"url:",link)
+            result=True
+    if not result:
+        print("현재는 관련 뉴스가 없습니다.")
+
 
 
 
